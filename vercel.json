@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/thryve_chart_simulator.html" }
+  ]
+}
