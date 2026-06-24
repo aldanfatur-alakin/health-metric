@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Thryve — Health Metric Chart Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #F5F5F0; color: #1A1A2E; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 600; color: #1A1A2E; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #888780; margin-bottom: 20px; }
+
+  .top { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 500; color: #888780; text-transform: uppercase; letter-spacing: .05em; }
+  select, input[type=number] { height: 36px; padding: 0 10px; border: 1px solid #D3D1C7; border-radius: 8px; font-size: 13px; background: #fff; color: #1A1A2E; outline: none; }
+  select:focus, input:focus { border-color: #1D9E75; }
+  select { min-width: 200px; }
+  input[type=number] { width: 100px; }
+
+  .card { background: #fff; border-radius: 16px; padding: 24px; border: 1px solid #E8E6DF; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 24px; }
+  .kpi { background: #F5F5F0; border-radius: 10px; padding: 12px 14px; }
+  .kpi-l { font-size: 11px; color: #888780; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi-v { font-size: 20px; font-weight: 600; color: #1A1A2E; }
+  .kpi-s { font-size: 11px; color: #B4B2A9; margin-top: 2px; }
+
+  /* CHART */
+  .chart-wrap { position: relative; height: 280px; display: flex; gap: 0; }
+  .y-axis { width: 56px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; padding-right: 10px; padding-bottom: 28px; flex-shrink: 0; }
+  .y-tick { font-size: 11px; color: #B4B2A9; white-space: nowrap; }
+  .chart-body { flex: 1; position: relative; border-left: 1px solid #E8E6DF; border-bottom: 1px solid #E8E6DF; }
+  .gridlines { position: absolute; inset: 0 0 0 0; pointer-events: none; }
+  .gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed #F0EEE8; }
+  .bars-row { position: absolute; left: 0; right: 0; top: 0; bottom: 28px; display: flex; align-items: flex-end; padding: 0 12px; gap: 6px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; position: relative; transition: opacity .15s; cursor: pointer; }
+  .bar:hover { opacity: .8; }
+  .bar-val { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 600; white-space: nowrap; }
+  .x-labels { position: absolute; bottom: 0; left: 0; right: 0; height: 24px; display: flex; padding: 0 12px; gap: 6px; }
+  .x-label { flex: 1; text-align: center; font-size: 10px; color: #B4B2A9; line-height: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .goal-line { position: absolute; left: 0; right: 0; border-top: 2px dashed #1D9E75; pointer-events: none; }
+  .goal-tag { position: absolute; right: 6px; font-size: 10px; font-weight: 600; color: #1D9E75; transform: translateY(-14px); background: #fff; padding: 1px 4px; border-radius: 4px; }
+
+  .zone-bar { height: 6px; border-radius: 99px; display: flex; overflow: hidden; margin-bottom: 16px; }
+  .zone-seg { transition: flex .3s; }
+  .zones-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .zone-pill { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #5F5E5A; }
+  .zone-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .algo-box { background: #F5F5F0; border-radius: 10px; padding: 14px 16px; font-size: 12px; color: #5F5E5A; line-height: 1.7; }
+  .algo-box code { font-family: "SF Mono", "Fira Code", monospace; font-size: 11px; background: #E8E6DF; padding: 1px 5px; border-radius: 4px; color: #1A1A2E; }
+  .formula-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .f-card { background: #F5F5F0; border-radius: 10px; padding: 12px 16px; }
+  .f-title { font-size: 10px; font-weight: 600; color: #888780; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .f-raw { font-family: "SF Mono","Fira Code",monospace; font-size: 11px; color: #888780; margin-bottom: 6px; line-height: 1.6; }
+  .f-filled { font-family: "SF Mono","Fira Code",monospace; font-size: 12px; color: #1A1A2E; font-weight: 500; line-height: 1.7; }
+  .f-result { font-size: 13px; font-weight: 600; color: #0F6E56; margin-top: 6px; }
+  .f-note { font-size: 11px; color: #B4B2A9; margin-top: 4px; }
+  @media(max-width:640px){ .formula-grid { grid-template-columns: 1fr; } }
+
+  .ticks-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tick-chip { background: #fff; border: 1px solid #E8E6DF; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; font-family: "SF Mono", monospace; }
+  .tick-chip.top { background: #E1F5EE; border-color: #1D9E75; color: #0F6E56; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: #888780; text-transform: uppercase; letter-spacing: .06em; margin: 20px 0 10px; }
+
+  .seg-ctrl { display:flex; border:1px solid #D3D1C7; border-radius:8px; overflow:hidden; height:36px; }
+  .seg { flex:1; border:none; background:#fff; color:#5F5E5A; font-size:13px; cursor:pointer; padding:0 14px; transition:all .15s; }
+  .seg.active { background:#1A1A2E; color:#fff; }
+  .seg:hover:not(.active) { background:#F5F5F0; }
+  @media (max-width: 640px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .top { flex-direction: column; align-items: stretch; }
+    select { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Thryve — Health Metric Chart Simulator</h1>
+<p class="sub">All 33 trackers · Y-axis dynamic (3–5 clean ticks) · Zones from Nubo Metrics spec (col N/O)</p>
+
+<div class="top">
+  <div class="field">
+    <label>Metric</label>
+    <select id="sel-metric" onchange="updateTfOptions();render()"></select>
+  </div>
+  <div class="field">
+    <label>Timeframe</label>
+    <select id="sel-tf" onchange="render()"></select>
+  </div>
+  <div class="field">
+    <label>Peak override</label>
+    <input type="number" id="inp-peak" placeholder="auto" onchange="render()" oninput="render()"/>
+  </div>
+  <div class="field" id="sex-field" style="display:none">
+    <label>Sex</label>
+    <div class="seg-ctrl">
+      <button class="seg active" id="btn-f" onclick="setSex('F',this)">Female</button>
+      <button class="seg" id="btn-m" onclick="setSex('M',this)">Male</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="kpis" id="kpis"></div>
+  <div class="section-title">Chart</div>
+  <div class="chart-wrap">
+    <div class="y-axis" id="y-axis"></div>
+    <div class="chart-body" id="chart-body">
+      <div class="gridlines" id="gridlines"></div>
+      <div class="bars-row" id="bars-row"></div>
+      <div class="goal-line" id="goal-line" style="display:none"><span class="goal-tag" id="goal-tag"></span></div>
+      <div class="x-labels" id="x-labels"></div>
+    </div>
+  </div>
+  <div class="section-title" style="margin-top:28px">Zone reference</div>
+  <div class="zone-bar" id="zone-bar"></div>
+  <div class="zones-legend" id="zones-legend"></div>
+  <div class="section-title">Y-axis calculation</div>
+  <div class="algo-box" id="algo-box"></div>
+  <div class="ticks-row" id="ticks-row"></div>
+
+  <div class="section-title" style="margin-top:20px">Formulas</div>
+  <div class="formula-grid" id="formula-grid"></div>
+</div>
+
+<script>
+const NICE = [1,1.5,2,2.5,3,4,5,7.5,10,15,20,25,30,40,50,75,100];
+const ZONE_COLORS = ["#E24B4A","#BA7517","#378ADD","#1D9E75","#639922","#A32D2D"];
+const ZONE_BG     = ["#FCEBEB","#FAEEDA","#E6F1FB","#E1F5EE","#EAF3DE","#FCEBEB"];
+
+function fmtN(n){
+  n=+n;
+  if(isNaN(n))return "—";
+  if(n>=1000000)return (n/1000000).toFixed(1).replace(/\.0$/,"")+"M";
+  if(n>=1000&&n%1000===0)return (n/1000)+"k";
+  if(n>=10000)return n.toLocaleString();
+  if(n===Math.round(n))return String(Math.round(n));
+  return +n.toFixed(2)+"";
+}
+
+function computeYAxis(peak, y0, rangeHint, integerOnly){
+  if(peak<=y0) peak=y0+1;
+  const magBase = rangeHint != null ? Math.max(rangeHint, 0.1) : Math.max(peak, 1);
+  const mag=Math.pow(10,Math.floor(Math.log10(magBase)));
+  for(const m of NICE){
+    const interval=+(m*mag).toFixed(10);
+    if(interval<=0)continue;
+    if(integerOnly && Math.round(interval)!==interval) continue;
+    // For dynamic (rangeHint set): start ticks from snapped y0
+    // For standard (no rangeHint): start ticks from 0, ceiling = next multiple above peak
+    const tickStart = rangeHint!=null ? Math.floor(y0/interval)*interval : 0;
+    const ceil = Math.ceil(peak/interval)*interval;
+    const all=[];
+    for(let t=tickStart;t<=ceil+interval*0.0001;t=+(t+interval).toFixed(10))all.push(+t.toFixed(10));
+    const vis=all.filter(t=>t>=y0-1e-9);
+    if(vis.length>=3&&vis.length<=5)return{interval,ceil,all,vis,mag,mult:m};
+  }
+  const interval=Math.ceil(peak/4);
+  const ceil=interval*4;
+  const all=[];for(let t=0;t<=ceil+0.001;t+=interval)all.push(+t.toFixed(10));
+  const vis=all.filter(t=>t>=y0-1e-9);
+  return{interval,ceil,all,vis,mag,mult:"fallback"};
+}
+
+const METRICS = {
+  "Steps":{unit:"steps",y0:0,yMax:30000,goal:10000,goalLabel:"10k goal",
+    zones:[{upper:5000,l:"Sedentary"},{upper:7500,l:"Low Active"},{upper:10000,l:"Somewhat Active"},{upper:12000,l:"Active"},{upper:Infinity,l:"Highly Active"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[1200,3400,4200,2800],agg:"Sum per 6-hr block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[7200,9400,11200,6800,10500,14000,8300],agg:"Total per day"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[8200,10500,7800,9600],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[7200,7800,9100,9600,10200,11400,10800,10100,9400,8800,7600,7100],agg:"Daily avg per month"},
+    }},
+  "Active Minutes":{unit:"min",y0:0,yMax:120,goal:30,goalLabel:"30 min WHO",
+    zones:[{upper:22,l:"Below WHO Min"},{upper:42,l:"Meets WHO Min"},{upper:60,l:"Active"},{upper:90,l:"Very Active"},{upper:Infinity,l:"High Performer"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[0,25,40,15],agg:"Sum per 6-hr block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[20,45,30,0,60,35,50],agg:"Total per day"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[28,45,22,38],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[20,22,28,32,38,42,45,43,35,30,25,18],agg:"Daily avg per month"},
+    }},
+  "Distance":{unit:"km",y0:0,yMax:20,goal:5,goalLabel:"5 km daily",
+    zones:[{upper:2,l:"Minimal"},{upper:5,l:"Light"},{upper:10,l:"Moderate"},{upper:20,l:"High"},{upper:Infinity,l:"Extreme"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[8,4.5,3,0,6,5,10],agg:"Total per day"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[5.2,6.8,4.1,7.3],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[3,3.5,4.5,5,6,7,7.5,7,6,5,4,3],agg:"Daily avg per month"},
+    }},
+  "Floors Climbed":{unit:"floors",y0:0,yMax:30,goal:10,goalLabel:"10 floors",
+    zones:[{upper:5,l:"Very Low"},{upper:10,l:"Low"},{upper:15,l:"Moderate"},{upper:25,l:"Active"},{upper:Infinity,l:"High"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[5,12,8,3,15,10,6],agg:"Total per day"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[8,11,7,13],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[6,7,8,9,10,12,11,10,9,8,7,6],agg:"Daily avg per month"},
+    }},
+  "VO2max":{unit:"mL/kg/min",y0:10,yMax:80,dynamicBounds:true,goal:42,goalLabel:"Fair threshold",
+    zones:[{upper:28,l:"Very Poor"},{upper:34,l:"Poor"},{upper:39,l:"Fair"},{upper:46,l:"Good"},{upper:53,l:"Excellent"},{upper:Infinity,l:"Superior"}],
+    tf:{
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun"],data:[38,38.5,39,40,40.5,41],agg:"Monthly reading"},
+    }},
+  "Sedentary Time":{unit:"min",y0:0,yMax:720,goal:240,goalLabel:"<4h target",goalInvert:true,
+    zones:[{upper:240,l:"Low Sedentary"},{upper:360,l:"Moderate"},{upper:480,l:"High"},{upper:600,l:"Very High"},{upper:Infinity,l:"Extreme (>10h)"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[360,120,200,60],agg:"Sum per 6-hr block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[200,480,520,460,500,400,180],agg:"Total per day"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[420,480,390,450],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[500,490,460,420,400,380,350,370,410,430,470,510],agg:"Daily avg per month"},
+    }},
+  "Weight":{unit:"kg",y0:30,yMax:200,dynamicBounds:true,
+    zones:[{upper:50,l:"Very Low"},{upper:60,l:"Low"},{upper:85,l:"Normal"},{upper:100,l:"Overweight"},{upper:Infinity,l:"Obese range"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[72,71.8,72.2,71.5,71.9,71.6,73],agg:"Daily reading"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[73,72.5,72,71.5],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[75,74.5,74,73.5,73,72.5,72,72,72.5,73,73.5,74],agg:"Monthly avg"},
+    }},
+  "BMI":{unit:"kg/m²",y0:10,yMax:40,dynamicBounds:true,
+    zones:[{upper:18.5,l:"Underweight"},{upper:25,l:"Normal Weight"},{upper:30,l:"Overweight"},{upper:35,l:"Obese I"},{upper:40,l:"Obese II"},{upper:Infinity,l:"Obese III"}],
+    tf:{
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[24.2,24.0,23.8,23.5],agg:"Derived from weight"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[25.1,24.9,24.7,24.5,24.3,24.1,24,24,24.2,24.4,24.6,24.9],agg:"Monthly avg"},
+    }},
+  "Heart Rate":{unit:"bpm",y0:30,yMax:200,dynamicBounds:true,integerOnly:true,
+    zones:[{upper:50,l:"Athletic Bradycardia"},{upper:60,l:"Excellent"},{upper:70,l:"Good"},{upper:80,l:"Average"},{upper:100,l:"Below Average"},{upper:Infinity,l:"Tachycardia"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[58,72,85,65],agg:"Avg per 6-hr block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[62,68,72,65,74,70,60],agg:"Daily resting avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[68,66,65,64],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[70,69,68,67,66,65,64,65,66,67,68,70],agg:"Monthly avg"},
+    }},
+  "SpO2":{unit:"%",y0:80,yMax:100,dynamicBounds:true,integerOnly:true,goal:95,goalLabel:"≥95%",
+    zones:[{upper:90,l:"Hypoxemia"},{upper:94,l:"Low"},{upper:96,l:"Below Normal"},{upper:Infinity,l:"Normal"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[97,98,97,96],agg:"Avg per block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[97,98,97,96,98,97,98],agg:"Daily avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[97,97,98,97],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[97,97,97,98,98,98,98,98,97,97,97,97],agg:"Monthly avg"},
+    }},
+  "Body Temperature":{unit:"°C",y0:34,yMax:42,dynamicBounds:true,goal:37,goalLabel:"Normal",
+    zones:[{upper:35,l:"Hypothermia"},{upper:36.5,l:"Low"},{upper:37.5,l:"Normal"},{upper:38,l:"Low-grade Fever"},{upper:39,l:"Fever"},{upper:Infinity,l:"High Fever"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[36.6,36.7,36.8,37.2,36.9,36.7,36.6],agg:"Daily avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[36.7,36.8,36.7,36.8],agg:"Weekly avg"},
+    }},
+  "HRV":{unit:"ms",y0:0,yMax:160,dynamicBounds:true,integerOnly:true,
+    zones:[{upper:20,l:"Very Low"},{upper:50,l:"Low"},{upper:80,l:"Average"},{upper:120,l:"Good"},{upper:Infinity,l:"Excellent"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[45,52,48,60,55,62,58],agg:"Overnight reading"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[52,56,58,60],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[45,47,50,52,55,58,60,62,60,58,52,48],agg:"Monthly avg"},
+    }},
+    "Waist Circumference":{unit:"cm",y0:40,yMax:140,dynamicBounds:true,integerOnly:true,
+    zones:[{upper:80,l:"Low Risk (F)"},{upper:88,l:"High Risk (F)"},{upper:94,l:"Low Risk (M)"},{upper:102,l:"High Risk (M)"},{upper:Infinity,l:"Very High Risk"}],
+    tf:{
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[92,91,90,89],agg:"Weekly reading"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[92,91,90,89,88,87,86,86,87,88,89,90],agg:"Monthly avg"},
+    }},
+  "Respiratory Rate":{unit:"br/min",y0:6,yMax:40,dynamicBounds:true,integerOnly:true,
+    zones:[{upper:8,l:"Bradypnea"},{upper:12,l:"Low Normal"},{upper:21,l:"Normal"},{upper:25,l:"Mildly Elevated"},{upper:Infinity,l:"Tachypnea"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[14,15,16,14,15,14,13],agg:"Overnight avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[14,15,14,14],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[15,15,14,14,14,13,13,14,14,15,15,16],agg:"Monthly avg"},
+    }},
+  "Blood Pressure":{unit:"mmHg",y0:40,yMax:180,dynamicBounds:true,integerOnly:true,goal:120,goalLabel:"Normal <120",
+    zones:[{upper:90,l:"Hypotension"},{upper:120,l:"Normal"},{upper:130,l:"Elevated"},{upper:140,l:"Stage 1 HT"},{upper:180,l:"Stage 2 HT"},{upper:Infinity,l:"Hypertensive Crisis"}],
+    tf:{
+      D:{labels:["Morning","Midday","Evening"],data:[118,122,116],agg:"Per reading (systolic)"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[115,120,118,122,119,116,114],agg:"Daily systolic avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[120,118,116,119],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[122,120,118,116,115,114,113,114,116,118,120,121],agg:"Monthly avg"},
+    }},
+"Sleep Duration":{unit:"h",y0:0,yMax:12,goal:8,goalLabel:"NSF 7-9h",
+    zones:[{upper:5,l:"Severely Insufficient"},{upper:6,l:"Insufficient"},{upper:7,l:"Below Recommended"},{upper:9,l:"Optimal"},{upper:10,l:"Slightly Excessive"},{upper:Infinity,l:"Excessive"}],
+    tf:{
+      W:{labels:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],data:[7.5,6.5,7,6,5.5,9,8.5],agg:"Nightly total"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[7.2,6.8,7.5,7],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[7.5,7.3,7,6.8,6.5,6.2,6,6.3,6.8,7,7.3,7.5],agg:"Monthly avg"},
+    }},
+  "Sleep Score":{unit:"score",y0:0,yMax:100,goal:75,goalLabel:"Very Good ≥75",
+    zones:[{upper:40,l:"Poor"},{upper:60,l:"Fair"},{upper:75,l:"Good"},{upper:90,l:"Very Good"},{upper:Infinity,l:"Excellent"}],
+    tf:{
+      W:{labels:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],data:[72,65,70,58,55,85,80],agg:"Nightly score"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[70,68,74,71],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[74,72,70,68,66,64,62,65,68,70,72,74],agg:"Monthly avg"},
+    }},
+  "Blood Glucose":{unit:"mg/dL",y0:40,yMax:400,dynamicBounds:true,integerOnly:true,goal:100,goalLabel:"Normal <100",
+    zones:[{upper:70,l:"Hypoglycemia"},{upper:100,l:"Normal (Fasting)"},{upper:126,l:"Pre-diabetic"},{upper:180,l:"Diabetic Range"},{upper:250,l:"Post-meal High"},{upper:Infinity,l:"Dangerously High"}],
+    tf:{
+      D:{labels:["Fasting","Post-B","Post-L","Post-D"],data:[92,145,130,118],agg:"Per reading"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[94,96,92,100,98,95,93],agg:"Fasting daily"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[95,97,93,96],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[98,96,95,94,93,92,91,92,94,95,97,99],agg:"Monthly avg"},
+    }},
+  "HbA1c":{unit:"%",y0:4,yMax:14,dynamicBounds:true,goal:6.5,goalLabel:"Pre-diabetic threshold",
+    zones:[{upper:5.7,l:"Normal"},{upper:6.5,l:"Pre-diabetic"},{upper:7,l:"Diabetic (Managed)"},{upper:8,l:"Diabetic"},{upper:Infinity,l:"Poorly Managed"}],
+    tf:{
+      Y:{labels:["Q1","Q2","Q3","Q4"],data:[6.5,6.2,6.0,5.8],agg:"Quarterly test"},
+    }},
+  "Mood":{unit:"score",y0:0,yMax:10,goal:7,goalLabel:"Good ≥7",
+    zones:[{upper:3,l:"Very Bad"},{upper:5,l:"Bad"},{upper:7,l:"Neutral"},{upper:9,l:"Good"},{upper:Infinity,l:"Excellent"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[7,5,6,7,8,9,8],agg:"Daily avg log"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[6.5,7,7.5,7.2],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[6,6.5,7,7.5,8,8,7.5,7,6.5,6,5.5,6],agg:"Monthly avg"},
+    }},
+  "Stress":{unit:"score",y0:0,yMax:10,goal:4,goalLabel:"Low ≤4",goalInvert:true,
+    zones:[{upper:3,l:"Very Low"},{upper:5,l:"Low"},{upper:7,l:"Moderate"},{upper:9,l:"High"},{upper:Infinity,l:"Extreme"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[2,6,7,6,7,5,2],agg:"Daily avg log"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[5,6,4,4],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[6,6,5,5,4,4,4,4,5,5,6,7],agg:"Monthly avg"},
+    }},
+  "Anxiety (GAD-2)":{unit:"score",y0:0,yMax:6,goal:2,goalLabel:"Minimal ≤2",goalInvert:true,
+    zones:[{upper:5,l:"Minimal"},{upper:10,l:"Mild"},{upper:15,l:"Moderate"},{upper:Infinity,l:"Severe"}],
+    tf:{
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[2,3,2,1],agg:"Per assessment"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[3,3,2,2,2,1,1,2,2,2,3,4],agg:"Monthly avg"},
+    }},
+  "Pain":{unit:"score",y0:0,yMax:10,goal:3,goalLabel:"Mild ≤3",goalInvert:true,
+    zones:[{upper:1,l:"No Pain"},{upper:4,l:"Mild Pain"},{upper:7,l:"Moderate Pain"},{upper:10,l:"Severe Pain"},{upper:Infinity,l:"Worst Possible"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[3,5,6,4,5,3,2],agg:"Daily avg"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[5,4,3,3],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[6,5,5,4,4,3,3,3,4,4,5,6],agg:"Monthly avg"},
+    }},
+  "Water Intake":{unit:"mL",y0:0,yMax:3000,goal:2500,goalLabel:"2,500 mL goal",
+    zones:[{upper:500,l:"Severely Low"},{upper:1000,l:"Low"},{upper:1500,l:"Below Target"},{upper:2000,l:"Approaching Goal"},{upper:2500,l:"Near Goal"},{upper:Infinity,l:"Goal Met"}],
+    tf:{
+      D:{labels:["00-06","06-12","12-18","18-24"],data:[200,800,900,600],agg:"Per block"},
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[2200,2600,2400,1800,2700,2500,2100],agg:"Daily total"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[2300,2500,2400,2600],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[2000,2000,2200,2300,2500,2800,3000,2900,2500,2200,2000,1900],agg:"Daily avg per month"},
+    }},
+  "Medication Adherence":{unit:"%",y0:0,yMax:100,goal:90,goalLabel:"≥90%",
+    zones:[{upper:50,l:"Non-adherent"},{upper:80,l:"Partially Adherent"},{upper:90,l:"Adherent (WHO min)"},{upper:Infinity,l:"Full Adherence"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[100,100,50,100,100,100,100],agg:"% doses taken"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[95,88,92,100],agg:"Weekly adherence %"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[92,88,95,90,94,98,96,92,90,88,85,91],agg:"Monthly adherence %"},
+    }},
+  "Smoking":{unit:"cig/day",y0:0,yMax:20,goal:0,goalLabel:"0 cig target",goalInvert:true,
+    zones:[{upper:1,l:"Non-smoker"},{upper:6,l:"Light Smoker"},{upper:11,l:"Moderate Smoker"},{upper:21,l:"Heavy Smoker"},{upper:Infinity,l:"Very Heavy Smoker"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[5,8,10,9,10,12,6],agg:"Daily total"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[10,9,8,7],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[12,11,10,9,9,8,8,7,7,6,6,5],agg:"Daily avg per month"},
+    }},
+  "Alcohol":{unit:"drinks/day",y0:0,yMax:14,goal:2,goalLabel:"≤2 drinks",goalInvert:true,
+    zones:[{upper:1,l:"None"},{upper:2,l:"Low Risk (F)"},{upper:3,l:"Low Risk (M)"},{upper:5,l:"Moderate Risk (F)"},{upper:7,l:"Moderate Risk (M)"},{upper:Infinity,l:"High / Very High Risk"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[1,0,1,0,2,4,3],agg:"Daily total"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[1.5,1,2,1.5],agg:"Daily avg per week"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[2,1.5,1,1,1,2,3,2.5,1.5,1,1.5,3],agg:"Monthly avg"},
+    }},
+  "Cycle Length":{unit:"days",y0:15,yMax:45,goal:28,goalLabel:"28-day avg",
+    zones:[{upper:24,l:"Short (Polymenorrhea)"},{upper:39,l:"Normal"},{upper:Infinity,l:"Long (Oligomenorrhea)"}],
+    tf:{
+      Y:{labels:["Cy1","Cy2","Cy3","Cy4","Cy5","Cy6","Cy7","Cy8","Cy9","Cy10","Cy11","Cy12"],data:[28,30,27,29,28,31,26,28,29,27,28,30],agg:"Per cycle"},
+    }},
+  "Period Duration":{unit:"days",y0:0,yMax:10,
+    zones:[{upper:2,l:"Very Short"},{upper:4,l:"Short"},{upper:9,l:"Normal"},{upper:Infinity,l:"Menorrhagia Risk"}],
+    tf:{
+      Y:{labels:["Cy1","Cy2","Cy3","Cy4","Cy5","Cy6"],data:[5,4,5,6,5,5],agg:"Per cycle"},
+    }},
+  "Cycle Symptoms":{unit:"severity",y0:0,yMax:10,
+    zones:[{upper:1,l:"None"},{upper:4,l:"Mild"},{upper:7,l:"Moderate"},{upper:10,l:"Severe"},{upper:Infinity,l:"Extreme"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[0,2,5,6,4,2,0],agg:"Daily avg severity"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[1,4,3,1],agg:"Weekly avg severity"},
+    }},
+  "RPE":{unit:"score",y0:6,yMax:20,
+    zones:[{upper:9,l:"Very Light"},{upper:11,l:"Very Light+"},{upper:13,l:"Light"},{upper:15,l:"Somewhat Hard"},{upper:17,l:"Hard"},{upper:19,l:"Very Hard"},{upper:Infinity,l:"Maximum Effort"}],
+    tf:{
+      W:{labels:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],data:[0,12,14,0,15,13,0],agg:"Per session"},
+      M:{labels:["Wk1","Wk2","Wk3","Wk4"],data:[12,13,14,15],agg:"Weekly avg"},
+      Y:{labels:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],data:[12,12,13,13,14,14,15,14,14,13,12,12],agg:"Monthly avg"},
+    }},
+};
+
+function getZoneIdx(v, zones){
+  // support both {max} (<=) and {upper} (<) formats
+  for(let i=0;i<zones.length;i++){
+    if(zones[i].upper !== undefined){ if(v < zones[i].upper) return i; }
+    else { if(v <= zones[i].max) return i; }
+  }
+  return zones.length-1;
+}
+function getZoneColor(v, zones){ return ZONE_COLORS[Math.min(getZoneIdx(v,zones),ZONE_COLORS.length-1)]; }
+function getZoneBg(v, zones){ return ZONE_BG[Math.min(getZoneIdx(v,zones),ZONE_BG.length-1)]; }
+
+// populate selects
+const SEX_ZONES = {
+  "VO2max": {
+    F: [{upper:28,l:"Very Poor"},{upper:34,l:"Poor"},{upper:39,l:"Fair"},{upper:46,l:"Good"},{upper:53,l:"Excellent"},{upper:Infinity,l:"Superior"}],
+    M: [{upper:33,l:"Very Poor"},{upper:39,l:"Poor"},{upper:44,l:"Fair"},{upper:53,l:"Good"},{upper:59,l:"Excellent"},{upper:Infinity,l:"Superior"}],
+  },
+  "Heart Rate": {
+    F: [{upper:50,l:"Athletic Bradycardia"},{upper:60,l:"Excellent"},{upper:70,l:"Good"},{upper:80,l:"Average"},{upper:100,l:"Below Average"},{upper:Infinity,l:"Tachycardia"}],
+    M: [{upper:40,l:"Athletic Bradycardia"},{upper:60,l:"Excellent"},{upper:70,l:"Good"},{upper:80,l:"Average"},{upper:100,l:"Below Average"},{upper:Infinity,l:"Tachycardia"}],
+  },
+  "Waist Circumference": {
+    F: [{upper:80,l:"Low Risk"},{upper:88,l:"High Risk"},{upper:Infinity,l:"Very High Risk"}],
+    M: [{upper:94,l:"Low Risk"},{upper:102,l:"High Risk"},{upper:Infinity,l:"Very High Risk"}],
+  },
+  "Alcohol": {
+    F: [{upper:1,l:"None"},{upper:2,l:"Low Risk"},{upper:4,l:"Moderate Risk"},{upper:6,l:"High Risk"},{upper:Infinity,l:"Very High Risk"}],
+    M: [{upper:1,l:"None"},{upper:3,l:"Low Risk"},{upper:5,l:"Moderate Risk"},{upper:7,l:"High Risk"},{upper:Infinity,l:"Very High Risk"}],
+  },
+};
+
+const SEX_METRICS = new Set(Object.keys(SEX_ZONES));
+let currentSex = "F";
+
+function setSex(sex, btn){
+  currentSex = sex;
+  document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+}
+
+const selM = document.getElementById("sel-metric");
+Object.keys(METRICS).forEach(k=>{ const o=document.createElement("option"); o.value=k; o.textContent=k; selM.appendChild(o); });
+
+const selTf = document.getElementById("sel-tf");
+
+function updateTfOptions(){
+  const mk = selM.value;
+  // Show/hide sex toggle
+  const sexField = document.getElementById("sex-field");
+  if(sexField) sexField.style.display = SEX_METRICS && SEX_METRICS.has(mk) ? "flex" : "none";
+  const tfs = Object.keys(METRICS[mk].tf);
+  selTf.innerHTML="";
+  tfs.forEach(tf=>{ const o=document.createElement("option"); o.value=tf; o.textContent={D:"Daily",W:"Weekly",M:"Monthly",Y:"Yearly"}[tf]||tf; selTf.appendChild(o); });
+  selTf.value = tfs.includes("W") ? "W" : tfs[0];
+}
+
+selM.addEventListener("change", ()=>{ updateTfOptions(); render(); });
+
+function render(){
+  const mk  = selM.value;
+  const tf  = selTf.value;
+  let m     = METRICS[mk];
+  const tfd = m.tf[tf];
+  if(!tfd) return;
+
+  const rawData = tfd.data.map(Number);
+  // Apply sex-specific zones if applicable
+  if(SEX_ZONES[mk]) m = Object.assign({}, m, {zones: SEX_ZONES[mk][currentSex]});
+  const peakOverride = parseFloat(document.getElementById("inp-peak").value);
+  const dataPeak = Math.max(...rawData);
+  const peak = (!isNaN(peakOverride) && peakOverride > 0) ? Math.min(peakOverride, m.yMax) : Math.min(dataPeak, m.yMax);
+
+  // Scale data first, THEN compute dynamic bounds from scaled values
+  const scaledForBounds = rawData.map(v => {
+    if(m.dynamicBounds){
+      // Shift mode: preserve relative differences, shift so max(data) = peak
+      const shift = dataPeak - peak;
+      return v - shift;
+    }
+    return dataPeak > 0 ? v * (peak / dataPeak) : v;
+  });
+
+  let effectiveY0 = m.y0;
+  let effectiveYMax = m.yMax;
+  if(m.dynamicBounds){
+    // Compute bounds from SCALED data
+    const sMin      = Math.min(...scaledForBounds);
+    const sMax      = Math.max(...scaledForBounds);  // = peak
+    const sRange    = sMax - sMin;
+    const noiseFloor  = sMax * 0.015;
+    const buffer      = Math.round(Math.max(sRange * 0.5, noiseFloor, 1) * 10) / 10;
+    const bufferAbove = Math.round(buffer * 0.5 * 10) / 10;
+    effectiveY0       = sMin - buffer;
+    effectiveYMax     = sMax + bufferAbove;
+  }
+
+  // First pass to get interval, then snap y0/yMax to interval multiples
+  const rangeHint0 = m.dynamicBounds ? (effectiveYMax - effectiveY0) : null;
+  const firstPass  = computeYAxis(peak, effectiveY0, rangeHint0, m.integerOnly);
+  const interval0  = firstPass.interval;
+  if(m.dynamicBounds){
+    effectiveY0   = Math.floor(effectiveY0  / interval0) * interval0;
+    effectiveYMax = Math.ceil(effectiveYMax / interval0) * interval0;
+  }
+
+  const rangeHint = m.dynamicBounds ? (effectiveYMax - effectiveY0) : null;
+  const {interval, ceil, all, vis} = computeYAxis(
+    m.dynamicBounds ? effectiveYMax : peak,
+    effectiveY0,
+    rangeHint,
+    m.integerOnly
+  );
+  const visRange = ceil - effectiveY0;
+
+  // Update sex label
+  const sexLbl = document.getElementById("sex-label");
+  if(sexLbl) sexLbl.textContent = SEX_ZONES[mk] ? (currentSex === "F" ? "· Female" : "· Male") : "";
+
+  // KPIs
+  const avg = rawData.reduce((a,b)=>a+b,0)/rawData.length;
+  const zi  = getZoneIdx(peak, m.zones);
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><div class="kpi-l">Peak</div><div class="kpi-v">${fmtN(peak)}</div><div class="kpi-s">${m.unit}</div></div>
+    <div class="kpi"><div class="kpi-l">Ceiling</div><div class="kpi-v">${fmtN(ceil)}</div><div class="kpi-s">snapped from ${fmtN(interval)} interval</div></div>
+    <div class="kpi"><div class="kpi-l">Ticks shown</div><div class="kpi-v">${vis.length}</div><div class="kpi-s">of ${vis.length} ticks · from ${fmtN(effectiveY0)}</div></div>
+    <div class="kpi"><div class="kpi-l">Zone (peak)</div><div class="kpi-v" style="font-size:14px;color:${ZONE_COLORS[Math.min(zi,ZONE_COLORS.length-1)]}">${m.zones[zi].l}</div><div class="kpi-s">${tfd.agg}</div></div>
+  `;
+
+  // Y axis
+  const yAxisEl = document.getElementById("y-axis");
+  yAxisEl.innerHTML = vis.slice().reverse().map(t=>`<span class="y-tick">${fmtN(t)}</span>`).join("");
+
+  // Gridlines
+  const glEl = document.getElementById("gridlines");
+  glEl.innerHTML = vis.map(t=>{
+    const pct = visRange>0 ? (1-(t-effectiveY0)/visRange)*100 : 0;
+    return `<div class="gridline" style="top:${pct.toFixed(2)}%"></div>`;
+  }).join("");
+
+  // Bars
+  const barsEl = document.getElementById("bars-row");
+  // Scale data proportionally to peak
+  // Use already-computed scaled data
+  const scaledData = scaledForBounds;
+  barsEl.innerHTML = scaledData.map((v,i)=>{
+    const frac      = visRange>0 ? Math.max(0,(v - effectiveY0)/visRange) : 0;
+    const heightPct = Math.max(frac*100, v > effectiveY0 ? 1.5 : 0);
+    const color     = getZoneColor(v, m.zones);
+    const bg        = getZoneBg(v, m.zones);
+    const valLabel  = frac>0.08
+      ? `<span class="bar-val" style="color:${color}">${m.dynamicBounds && !m.integerOnly ? v.toFixed(1) : fmtN(Math.round(v))}</span>` : "";
+    return `<div class="bar-wrap">
+      <div class="bar" style="height:${heightPct.toFixed(2)}%;background:${bg};border:2px solid ${color};"
+        title="${tfd.labels[i]}: ${m.dynamicBounds && !m.integerOnly ? v.toFixed(1) : fmtN(Math.round(v))} ${m.unit}">
+        ${valLabel}
+      </div>
+    </div>`;
+  }).join("");
+
+  // X labels
+  document.getElementById("x-labels").innerHTML = tfd.labels.map(l=>`<span class="x-label">${l}</span>`).join("");
+
+  // Goal line
+  const glLine = document.getElementById("goal-line");
+  if(m.goal!=null && visRange>0){
+    const gf = (m.goal - effectiveY0)/visRange;
+    if(gf>=0 && gf<=1.05){
+      glLine.style.display="block";
+      glLine.style.bottom=(Math.min(gf,1)*100).toFixed(2)+"%";
+      glLine.style.top="auto";
+      document.getElementById("goal-tag").textContent = m.goalLabel || fmtN(m.goal);
+    } else { glLine.style.display="none"; }
+  } else { glLine.style.display="none"; }
+
+  // Zone bar
+  const totalRange = effectiveYMax - effectiveY0;
+  function zBound(z){ return z.upper !== undefined ? z.upper : (z.max !== undefined ? z.max + 0.001 : effectiveYMax); }
+  function zPrev(zones, i){ return i>0 ? zBound(zones[i-1]) : effectiveY0; }
+  function zLabel(z, i, zones){
+    if(z.upper !== undefined){
+      return i===zones.length-1
+        ? `≥ ${fmtN(zones[i-1]?.upper ?? effectiveY0)}`
+        : `< ${fmtN(z.upper)}`;
+    }
+    return `≤ ${fmtN(z.max)}`;
+  }
+
+  document.getElementById("zone-bar").innerHTML = m.zones.map((z,i)=>{
+    const hi = Math.min(zBound(z), effectiveYMax);
+    const lo = Math.max(zPrev(m.zones,i), effectiveY0);
+    const width = ((hi - lo) / totalRange * 100).toFixed(2);
+    return `<div class="zone-seg" style="flex:${width};background:${ZONE_BG[Math.min(i,ZONE_BG.length-1)]};border-right:1px solid #fff"></div>`;
+  }).join("");
+
+  document.getElementById("zones-legend").innerHTML = m.zones.map((z,i)=>`
+    <div class="zone-pill">
+      <div class="zone-dot" style="background:${ZONE_COLORS[Math.min(i,ZONE_COLORS.length-1)]}"></div>
+      ${z.l} (${zLabel(z,i,m.zones)} ${m.unit})
+    </div>`).join("");
+
+  // Algo box — summary
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(peak, 1))));
+  document.getElementById("algo-box").innerHTML =
+    `Peak <code>${fmtN(peak)}</code> → magnitude <code>${fmtN(mag)}</code> → interval <code>${fmtN(interval)}</code> → ceiling <code>${fmtN(ceil)}</code><br/>
+     All ticks from 0: ${all.map(t=>`<code>${fmtN(t)}</code>`).join(" ")} — showing ticks ≥ <code>${fmtN(effectiveY0)}</code>`;
+
+  document.getElementById("ticks-row").innerHTML = vis.map((t,i)=>
+    `<span class="tick-chip${i===vis.length-1?" top":""}">${fmtN(t)}</span>`
+  ).join("");
+
+  // Formula grid — raw + filled for this metric
+  const isBounded = m.dynamicBounds;
+  const fmtVal = v => m.dynamicBounds && !m.integerOnly ? v.toFixed(1) : fmtN(v);
+
+  const rangeHintVal = isBounded ? (effectiveYMax - effectiveY0) : null;
+  const magBase = rangeHintVal != null ? Math.max(rangeHintVal, 0.1) : Math.max(peak, 1);
+  const magComputed = Math.pow(10, Math.floor(Math.log10(magBase)));
+  const niceMultiplier = interval / magComputed;
+
+  const formulas = [
+    {
+      title: "Step 1 — Magnitude",
+      raw:    "magnitude = 10 ^ floor( log10( " + (isBounded ? "range_hint" : "peak") + " ) )",
+      filled: "magnitude = 10 ^ floor( log10( " + fmtN(magBase) + " ) )\n         = 10 ^ floor( " + Math.log10(magBase).toFixed(3) + " )\n         = 10 ^ " + Math.floor(Math.log10(magBase)) + "\n         = " + fmtN(magComputed),
+      result: "magnitude = " + fmtN(magComputed),
+      note: isBounded ? "range-based (dynamic bounds: yMax − y0 = " + fmtN(effectiveYMax) + " − " + fmtN(effectiveY0) + " = " + fmtN(rangeHintVal.toFixed(2)) + ")" : "peak-based",
+    },
+    {
+      title: "Step 2 — Nice interval",
+      raw:    "candidates = NICE × magnitude\npick first where 3 ≤ visible_ticks ≤ 5",
+      filled: "candidates = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10 ...] × " + fmtN(magComputed) + "\nchosen multiplier = " + niceMultiplier + "\ninterval = " + niceMultiplier + " × " + fmtN(magComputed),
+      result: "interval = " + fmtN(interval),
+      note: "first candidate producing " + vis.length + " visible ticks",
+    },
+    {
+      title: "Step 3 — Ceiling",
+      raw:    "ceiling = ceil( peak / interval ) × interval",
+      filled: "ceiling = ceil( " + fmtN(isBounded ? effectiveYMax : peak) + " / " + fmtN(interval) + " ) × " + fmtN(interval) + "\n        = ceil( " + (((isBounded ? effectiveYMax : peak) / interval)).toFixed(4) + " ) × " + fmtN(interval) + "\n        = " + Math.ceil((isBounded ? effectiveYMax : peak) / interval) + " × " + fmtN(interval),
+      result: "ceiling = " + fmtN(ceil),
+      note: isBounded ? "based on effectiveYMax = " + fmtN(effectiveYMax) : "based on peak",
+    },
+    {
+      title: "Step 4 — Ticks",
+      raw:    "all_ticks  = [0, interval, 2×interval … ceiling]\nshown = all_ticks.filter(t ≥ y0)",
+      filled: "all_ticks  = [" + all.map(fmtN).join(", ") + "]\ny0 = " + fmtN(effectiveY0) + "\nshown = [" + vis.map(fmtN).join(", ") + "]",
+      result: vis.length + " ticks shown",
+      note: isBounded ? "ticks start from snapped y0 = " + fmtN(effectiveY0) : "ticks start from 0, filter ≥ y0",
+    },
+  ];
+
+  // Add dynamic bounds formula card if applicable
+  if(isBounded){
+    const sMin = Math.min(...scaledForBounds);
+    const sMax = Math.max(...scaledForBounds);
+    const sRange = sMax - sMin;
+    const nf = sMax * 0.015;
+    const buf = Math.round(Math.max(sRange * 0.5, nf, 1) * 10) / 10;
+    const bufA = Math.round(buf * 0.5 * 10) / 10;
+    formulas.unshift({
+      title: "Step 0 — Dynamic bounds",
+      raw:    "buffer      = max( range×0.5,  peak×1.5%,  1 )\nbufferAbove = buffer × 0.5\ny0   = min(data) − buffer\nyMax = max(data) + bufferAbove\n→ snap both to interval multiples",
+      filled: "data range  = " + fmtVal(sMax) + " − " + fmtVal(sMin) + " = " + fmtVal(sRange) + "\nnoise floor = " + fmtVal(sMax) + " × 1.5% = " + nf.toFixed(3) + "\nbuffer      = max(" + fmtVal(sRange * 0.5) + ", " + nf.toFixed(3) + ", 1) = " + buf + "\nbufferAbove = " + buf + " × 0.5 = " + bufA + "\nraw y0   = " + fmtVal(sMin) + " − " + buf + " = " + fmtVal(sMin - buf) + " → snapped = " + fmtN(effectiveY0) + "\nraw yMax = " + fmtVal(sMax) + " + " + bufA + " = " + fmtVal(sMax + bufA) + " → snapped = " + fmtN(effectiveYMax),
+      result: "y0 = " + fmtN(effectiveY0) + "  ·  yMax = " + fmtN(effectiveYMax),
+      note: "asymmetric: full buffer below, half above",
+    });
+  }
+
+  document.getElementById("formula-grid").innerHTML = formulas.map(f => `
+    <div class="f-card">
+      <div class="f-title">${f.title}</div>
+      <div class="f-raw">${f.raw.replace(/\n/g,"<br/>")}</div>
+      <div class="f-filled">${f.filled.replace(/\n/g,"<br/>")}</div>
+      <div class="f-result">${f.result}</div>
+      ${f.note ? `<div class="f-note">${f.note}</div>` : ""}
+    </div>`).join("");
+}
+
+updateTfOptions();
+render();
+</script>
+</body>
+</html>
