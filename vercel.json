@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/thryve_chart_simulator without buffer information.html" }
+    { "source": "/", "destination": "/thryve_chart_simulator with data type.html" }
   ]
 }
