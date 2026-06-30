@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/thryve_chart_simulator with data type.html" }
+    { "source": "/", "destination": "/thryve_chart_simulator_bodyweightupdate.html" }
   ]
 }
