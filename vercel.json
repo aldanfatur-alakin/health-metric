@@ -1,4 +1,4 @@
 {
   "framework": "nextjs",
-  "installCommand": "git config --global url.\"https://${GITHUB_TOKEN}@github.com/\".insteadOf \"ssh://git@github.com/\" && git config --global url.\"https://${GITHUB_TOKEN}@github.com/\".insteadOf \"git@github.com:\" && npm install"
+  "installCommand": "git config --global credential.helper store && echo \"https://${GITHUB_TOKEN}:x-oauth-basic@github.com\" > ~/.git-credentials && npm install"
 }

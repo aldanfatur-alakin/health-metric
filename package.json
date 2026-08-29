@@ -10,6 +10,6 @@
     "next": "15",
     "react": "19",
     "react-dom": "19",
-    "tech2heal-design-system": "github:aldanfatur-alakin/tech2heal-design-system"
+    "tech2heal-design-system": "git+https://github.com/aldanfatur-alakin/tech2heal-design-system.git"
   }
 }
