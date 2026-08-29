@@ -124,7 +124,10 @@ const METRICS = {
     }},
   'Blood Pressure':{datatypeCategory:'Continuous data',unit:'mmHg',y0:40,yMax:180,dynamicBounds:true,integerOnly:true,goal:120,goalLabel:'Normal SYS <120',
     paired:true,seriesLabels:['Systolic','Diastolic'],
-    zones:[{upper:90,l:'Hypotension'},{upper:120,l:'Normal'},{upper:130,l:'Elevated'},{upper:140,l:'Stage 1 HT'},{upper:180,l:'Stage 2 HT'},{upper:Infinity,l:'Hypertensive Crisis'}],
+    zones:[{upper:90,l:'Hypotension'},{upper:120,l:'Normal'},{upper:130,l:'Elevated'},{upper:140,l:'Stage 1 HTN'},{upper:180,l:'Stage 2 HTN'},{upper:Infinity,l:'Hypertensive Crisis'}],
+    zones2:[{upper:60,l:'Low'},{upper:80,l:'Normal'},{upper:90,l:'Stage 1 HTN'},{upper:Infinity,l:'Stage 2 HTN'}],
+    zonesNote:'⚠ "Elevated" applies to systolic 120–129 mmHg with diastolic <80 only (ACC/AHA 2017). Diastolic 80–89 = Stage 1 HTN.',
+    source:'ACC/AHA 2017 Guideline. Whelton PK et al. (2018) JACC 71(19):e127–e248. DOI:10.1016/j.jacc.2017.11.006',
     tf:{
       D:{labels:['Morning','Midday','Evening'],data:[118,122,116],data2:[76,82,74],agg:'Per reading'},
       W:{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],data:[115,120,118,122,119,116,114],data2:[74,78,76,80,77,75,72],agg:'Daily avg'},
@@ -360,8 +363,9 @@ function computeChart(metricKey, tf, peakInput, peakInput2, sex) {
   let effectiveY0 = m.y0;
   let effectiveYMax = m.yMax;
   if (m.dynamicBounds) {
-    const sMin = Math.min(...scaledForBounds);
-    const sMax = Math.max(...scaledForBounds);
+    const allScaled = scaledForBounds2 ? [...scaledForBounds, ...scaledForBounds2] : scaledForBounds;
+    const sMin = Math.min(...allScaled);
+    const sMax = Math.max(...allScaled);
     const sRange = sMax - sMin;
     const noiseFloor = sMax * 0.015;
     const buffer = Math.round(Math.max(sRange * 0.5, noiseFloor, 1) * 10) / 10;
@@ -690,6 +694,7 @@ export default function Simulator() {
 
         {/* Zone reference */}
         <div className="section-title" style={{marginTop:28}}>Zone reference</div>
+        {m.paired && <div style={{fontSize:'var(--text-body-xs)',color:'var(--text-tertiary)',marginBottom:'var(--space-2)',fontWeight:'var(--font-weight-semibold)'}}>Systolic</div>}
         <div className="zone-bar">
           {m.zones.map((z,i) => {
             const totalRange = effectiveYMax - effectiveY0;
@@ -710,6 +715,31 @@ export default function Simulator() {
             </div>
           ))}
         </div>
+        {m.zones2 && <>
+          <div style={{fontSize:'var(--text-body-xs)',color:'var(--text-tertiary)',marginBottom:'var(--space-2)',marginTop:'var(--space-3)',fontWeight:'var(--font-weight-semibold)'}}>Diastolic</div>
+          <div className="zone-bar">
+            {m.zones2.map((z,i) => {
+              const totalRange = effectiveYMax - effectiveY0;
+              const hi = Math.min(zBound(z, effectiveYMax), effectiveYMax);
+              const lo = Math.max(zPrev(m.zones2, i, effectiveY0), effectiveY0);
+              const flex = ((hi - lo) / totalRange * 100).toFixed(2);
+              return (
+                <div key={i} className="zone-seg"
+                  style={{flex:flex,background:ZONE_BG[Math.min(i,ZONE_BG.length-1)],borderRight:'1px solid #fff'}} />
+              );
+            })}
+          </div>
+          <div className="zones-legend">
+            {m.zones2.map((z,i) => (
+              <div key={i} className="zone-pill">
+                <div className="zone-dot" style={{background:ZONE_COLORS[Math.min(i,ZONE_COLORS.length-1)]}} />
+                {z.l} ({zLabel(z,i,m.zones2)} {m.unit})
+              </div>
+            ))}
+          </div>
+        </>}
+        {m.zonesNote && <div style={{fontSize:'var(--text-body-xs)',color:'var(--text-secondary)',marginTop:'var(--space-3)',padding:'var(--space-2) var(--space-3)',background:'var(--color-background)',borderRadius:'var(--radius-lg)',border:'1px solid var(--color-border)'}}>{m.zonesNote}</div>}
+        {m.source && <div style={{fontSize:10,color:'var(--text-disabled)',marginTop:'var(--space-2)'}}>{m.source}</div>}
 
         {/* Y-axis calculation */}
         <div className="section-title">Y-axis calculation</div>
