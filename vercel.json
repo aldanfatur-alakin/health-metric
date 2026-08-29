@@ -1,5 +1,3 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/thryve_chart_simulator_bodyweightupdate.html" }
-  ]
+  "framework": "nextjs"
 }
