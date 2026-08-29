@@ -1,0 +1,417 @@
+/**
+ * variables.css
+ * Tech2heal Design System — CSS custom properties
+ * Source: Figma file 11TtcsbUDV3lVL3NUqgHxt (Tech2heal Dashboard DS)
+ *
+ * ═══════════════════════════════════════════════════════════════
+ *  3-LAYER TOKEN ARCHITECTURE (mirrors Figma variable collections)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *  Layer 1 — Raw palette      (primitive hex values — defined once on :root)
+ *               ↓ aliased by
+ *  Layer 2 — Brand tokens     (per-theme block: --brand-* + brand-aware semantics)
+ *               ↓ aliased by
+ *  Layer 3 — Fixed semantics  (:root only — neutral/destructive/spacing/type)
+ *
+ * WHY brand-aware semantics live in Layer 2 (not Layer 3):
+ *   CSS custom properties resolve var() references at the element where the
+ *   property is first DEFINED, not where it is INHERITED. Putting
+ *   --color-primary: var(--brand-600) on :root means all elements resolve
+ *   --brand-600 at html level (always blue). By defining it on each theme
+ *   class instead, the property is OWNED by the themed ancestor div, so
+ *   var(--brand-600) resolves in that div's context — green for marketplaces,
+ *   violet for distributor — and all descendants inherit the correct value.
+ *
+ * USAGE:
+ *   Import once at app root:    import '@/tokens/variables.css';
+ *   Apply theme on <html>:      <html class="theme-client">
+ *   Or use ThemeProvider:       <ThemeProvider theme="marketplaces">
+ */
+
+
+/* ════════════════════════════════════════════════════════════════
+   LAYER 1 — RAW PALETTE
+   Primitive hex values from Figma "raw colors" collection.
+   Defined once on :root — never reference directly in components.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Neutral (shared across all themes) ── */
+  --neutral-50:  #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-400: #a3a3a3;
+  --neutral-500: #737373;
+  --neutral-600: #525252;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-900: #171717;
+  --neutral-950: #0a0a0a;
+
+  /* ── Red — destructive / error (shared across all themes) ── */
+  --red-50:  #fef2f2;
+  --red-100: #fee2e2;
+  --red-200: #fecaca;
+  --red-300: #fca5a5;
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+  --red-800: #991b1b;
+  --red-900: #7f1d1d;
+
+  /* ── Blue — Client brand ── */
+  --blue-50:  #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-300: #93c5fd;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a8a;
+  --blue-950: #172554;
+
+  /* ── Green — Marketplaces brand ── */
+  --green-50:  #f0fdf4;
+  --green-100: #dcfce7;
+  --green-200: #bbf7d0;
+  --green-300: #86efac;
+  --green-400: #4ade80;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-900: #14532d;
+  --green-950: #052e16;
+
+  /* ── Violet — Distributor brand ── */
+  --violet-50:  #f5f3ff;
+  --violet-100: #ede9fe;
+  --violet-200: #ddd6fe;
+  --violet-300: #c4b5fd;
+  --violet-400: #a78bfa;
+  --violet-500: #8b5cf6;
+  --violet-600: #7c3aed;
+  --violet-700: #6d28d9;
+  --violet-800: #5b21b6;
+  --violet-900: #4c1d95;
+  --violet-950: #2e1065;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LAYER 2 — BRAND TOKENS + BRAND-AWARE SEMANTICS (per theme)
+
+   Each theme block owns both:
+     a) --brand-* scale (which raw palette to use)
+     b) brand-aware semantic tokens (--color-primary, --text-info, etc.)
+
+   Defining semantic tokens here (not on :root) ensures they are
+   OWN properties of the themed element, so var(--brand-*) resolves
+   at the div level — correct for scoped ThemeProvider usage.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Client (default — Blue) ─────────────────────────────────── */
+:root,
+.theme-client {
+  /* Brand scale */
+  --brand-50:  var(--blue-50);
+  --brand-100: var(--blue-100);
+  --brand-200: var(--blue-200);
+  --brand-300: var(--blue-300);
+  --brand-400: var(--blue-400);
+  --brand-500: var(--blue-500);
+  --brand-600: var(--blue-600);
+  --brand-700: var(--blue-700);
+  --brand-800: var(--blue-800);
+  --brand-900: var(--blue-900);
+  --brand-950: var(--blue-950);
+
+  /* Brand-aware semantic tokens */
+  --color-primary:              var(--brand-600);
+  --color-primary-foreground:   var(--brand-50);
+  --color-primary-hover:        var(--brand-700);
+  --color-secondary:            var(--brand-100);
+  --color-secondary-foreground: var(--neutral-900);
+  --color-secondary-hover:      var(--neutral-50);
+  --color-muted:                var(--brand-100);
+  --color-sidebar-primary:      var(--brand-600);
+  --color-sidebar-primary-foreground: var(--brand-50);
+  --text-on-primary:            var(--brand-50);
+  --text-link:                  var(--brand-600);
+  --text-link-visited:          var(--brand-700);
+  --text-info:                  var(--brand-800);
+
+  /* Brand-aware compatibility aliases */
+  --color-border-focus:         var(--brand-600);
+  --color-primary-focus:        var(--brand-600);
+  --color-on-primary:           var(--brand-50);
+  --color-info:                 var(--brand-800);
+}
+
+/* ── Marketplaces (Green) ─────────────────────────────────────── */
+.theme-marketplaces {
+  --brand-50:  var(--green-50);
+  --brand-100: var(--green-100);
+  --brand-200: var(--green-200);
+  --brand-300: var(--green-300);
+  --brand-400: var(--green-400);
+  --brand-500: var(--green-500);
+  --brand-600: var(--green-600);
+  --brand-700: var(--green-700);
+  --brand-800: var(--green-800);
+  --brand-900: var(--green-900);
+  --brand-950: var(--green-950);
+
+  --color-primary:              var(--brand-600);
+  --color-primary-foreground:   var(--brand-50);
+  --color-primary-hover:        var(--brand-700);
+  --color-secondary:            var(--brand-100);
+  --color-secondary-foreground: var(--neutral-900);
+  --color-secondary-hover:      var(--neutral-50);
+  --color-muted:                var(--brand-100);
+  --color-sidebar-primary:      var(--brand-600);
+  --color-sidebar-primary-foreground: var(--brand-50);
+  --text-on-primary:            var(--brand-50);
+  --text-link:                  var(--brand-600);
+  --text-link-visited:          var(--brand-700);
+  --text-info:                  var(--brand-800);
+
+  --color-border-focus:         var(--brand-600);
+  --color-primary-focus:        var(--brand-600);
+  --color-on-primary:           var(--brand-50);
+  --color-info:                 var(--brand-800);
+}
+
+/* ── Distributor (Violet) ─────────────────────────────────────── */
+.theme-distributor {
+  --brand-50:  var(--violet-50);
+  --brand-100: var(--violet-100);
+  --brand-200: var(--violet-200);
+  --brand-300: var(--violet-300);
+  --brand-400: var(--violet-400);
+  --brand-500: var(--violet-500);
+  --brand-600: var(--violet-600);
+  --brand-700: var(--violet-700);
+  --brand-800: var(--violet-800);
+  --brand-900: var(--violet-900);
+  --brand-950: var(--violet-950);
+
+  --color-primary:              var(--brand-600);
+  --color-primary-foreground:   var(--brand-50);
+  --color-primary-hover:        var(--brand-700);
+  --color-secondary:            var(--brand-100);
+  --color-secondary-foreground: var(--neutral-900);
+  --color-secondary-hover:      var(--neutral-50);
+  --color-muted:                var(--brand-100);
+  --color-sidebar-primary:      var(--brand-600);
+  --color-sidebar-primary-foreground: var(--brand-50);
+  --text-on-primary:            var(--brand-50);
+  --text-link:                  var(--brand-600);
+  --text-link-visited:          var(--brand-700);
+  --text-info:                  var(--brand-800);
+
+  --color-border-focus:         var(--brand-600);
+  --color-primary-focus:        var(--brand-600);
+  --color-on-primary:           var(--brand-50);
+  --color-info:                 var(--brand-800);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LAYER 3 — FIXED SEMANTIC TOKENS
+   These do not change between themes — neutral, destructive,
+   spacing, typography, shadows, and radius.
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Fixed semantic colors ────────────────────────────────────── */
+  --color-background:           var(--neutral-50);
+  --color-foreground:           var(--neutral-900);
+
+  --color-accent:               var(--neutral-50);
+  --color-accent-foreground:    var(--neutral-900);
+  --color-muted-foreground:     var(--neutral-500);
+
+  --color-destructive:          var(--red-600);
+  --color-destructive-hover:    var(--red-700);
+  --color-destructive-subtle:   var(--red-50);
+  --color-destructive-border:   var(--red-400);
+  --color-destructive-foreground: #ffffff;
+
+  --color-border:               var(--neutral-200);
+  --color-input:                var(--neutral-50);
+  --color-ring:                 var(--neutral-300);
+  --color-ring-error:           var(--red-300);
+
+  --color-card:                 #ffffff;
+  --color-card-foreground:      var(--neutral-950);
+  --color-popover:              #ffffff;
+  --color-backdrop:             rgba(0, 0, 0, 0.40);
+
+  /* Sidebar (non-brand) */
+  --color-sidebar:              var(--neutral-50);
+  --color-sidebar-foreground:   var(--neutral-700);
+  --color-sidebar-accent:       var(--neutral-100);
+  --color-sidebar-border:       var(--neutral-200);
+  --color-sidebar-ring:         var(--neutral-300);
+
+  /* Ghost / Outline */
+  --color-outline:              rgba(255, 255, 255, 0.10);
+  --color-outline-hover:        rgba(0, 0, 0, 0.03);
+  --color-ghost:                transparent;
+  --color-ghost-hover:          rgba(0, 0, 0, 0.05);
+  --color-border-hover:         var(--neutral-400);
+
+  /* ── Fixed text colors ────────────────────────────────────────── */
+  --text-primary:               var(--neutral-900);
+  --text-secondary:             var(--neutral-600);
+  --text-tertiary:              var(--neutral-500);
+  --text-disabled:              var(--neutral-400);
+  --text-inverse:               #ffffff;
+  --text-on-destructive:        #ffffff;
+  --text-danger:                var(--red-700);
+  --text-warning:               #92400e;
+  --text-success:               #166534;
+
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  --font-sans:                  'Geist', sans-serif;
+  --font-mono:                  'Geist Mono', monospace;
+
+  --font-weight-regular:        400;
+  --font-weight-medium:         500;
+  --font-weight-semibold:       600;
+
+  --text-h1:                    48px;
+  --text-h2:                    30px;
+  --text-h3:                    24px;
+  --text-h4:                    20px;
+  --text-body-lg:               18px;
+  --text-body:                  16px;
+  --text-body-sm:               14px;
+  --text-body-xs:               12px;
+  --text-caption:               14px;
+  --text-mono:                  16px;
+
+  --leading-h1:                 48px;
+  --leading-h2:                 30px;
+  --leading-h3:                 28.8px;
+  --leading-h4:                 24px;
+  --leading-body-lg:            27px;
+  --leading-body:               24px;
+  --leading-body-sm:            20px;
+  --leading-body-xs:            16px;
+  --leading-caption:            21px;
+
+  --tracking-h1:                -1.5px;
+  --tracking-h2:                -1px;
+  --tracking-h3:                -1px;
+  --tracking-caption:           1.5px;
+
+
+  /* ── Spacing ──────────────────────────────────────────────────── */
+  --space-0:    0px;
+  --space-1:    4px;
+  --space-2:    8px;
+  --space-3:    12px;
+  --space-4:    16px;
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-8:    32px;
+  --space-10:   40px;
+  --space-12:   48px;
+  --space-16:   64px;
+  --space-20:   80px;
+  --space-24:   96px;
+
+  --spacing-xs:  8px;
+  --spacing-sm:  12px;
+  --spacing-md:  16px;
+  --spacing-lg:  20px;
+  --spacing-xl:  24px;
+  --spacing-2xl: 32px;
+
+
+  /* ── Border radius ────────────────────────────────────────────── */
+  --radius-none: 0px;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   10px;
+  --radius-2xl:  12px;
+  --radius-3xl:  16px;
+  --radius-full: 9999px;
+
+
+  /* ── Shadows ──────────────────────────────────────────────────── */
+  --shadow-xs:   0px 1px 2px 0px rgba(0, 0, 0, 0.05);
+  --shadow-sm:   0px 1px 3px 0px rgba(0, 0, 0, 0.10), 0px 1px 2px -1px rgba(0, 0, 0, 0.10);
+  --shadow-md:   0px 4px 6px -1px rgba(0, 0, 0, 0.10), 0px 2px 4px -2px rgba(0, 0, 0, 0.10);
+  --shadow-lg:   0px 10px 15px -3px rgba(0, 0, 0, 0.10), 0px 4px 6px -4px rgba(0, 0, 0, 0.10);
+  --shadow-xl:   0px 20px 25px -5px rgba(0, 0, 0, 0.10), 0px 8px 10px -6px rgba(0, 0, 0, 0.10);
+  --shadow-none: none;
+  --shadow-switch: 0px 1px 3px rgba(0,0,0,0.15), 0px 1px 2px rgba(0,0,0,0.10); /* Switch thumb shadow */
+
+
+  /* ════════════════════════════════════════════════════════════════
+     COMPATIBILITY ALIASES (fixed — non-brand)
+     Maps Arzian's component variable names → our semantic tokens.
+     Brand-aware aliases are in each theme block above (Layer 2).
+     Do not remove — these power all components in src/components/.
+     ════════════════════════════════════════════════════════════════ */
+
+  --color-bg:                   var(--color-background);
+  --color-fg:                   var(--color-foreground);
+  --color-surface:              #ffffff;
+  --color-input-bg:             #ffffff;
+  --color-border-strong:        var(--neutral-300);
+  --color-focus-ring:           var(--color-ring);
+  --color-focus-ring-error:     var(--color-ring-error);
+  --color-error:                var(--color-destructive);
+  --color-error-ring:           var(--color-ring-error);
+  --color-inverse:              var(--text-inverse);
+  --color-text-primary:         var(--text-primary);
+  --color-text-secondary:       var(--text-secondary);
+  --color-text-tertiary:        var(--text-tertiary);
+  --color-accent-subtle:        var(--neutral-200);
+
+  --font-body:                  var(--font-sans);
+  --font-size-xs:               var(--text-body-xs);
+  --font-size-sm:               var(--text-body-sm);
+  --font-size-md:               var(--text-body);
+  --line-height-xs:             var(--leading-body-xs);
+  --line-height-sm:             var(--leading-body-sm);
+  --letter-spacing-sm:          0px;
+
+  --space-3xs:   2px;
+  --space-2xs:   4px;
+  --space-xs:    var(--spacing-xs);
+  --space-sm:    var(--spacing-sm);
+  --space-md:    var(--spacing-md);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL BASE STYLES
+   Apply the DS font and base text color to everything so no text
+   falls back to the browser's default serif font.
+   ════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  color: var(--text-primary);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+}
