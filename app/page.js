@@ -122,13 +122,14 @@ const METRICS = {
       M:{labels:['Wk1','Wk2','Wk3','Wk4'],data:[14,15,14,14],agg:'Weekly avg'},
       Y:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],data:[15,15,14,14,14,13,13,14,14,15,15,16],agg:'Monthly avg'},
     }},
-  'Blood Pressure':{datatypeCategory:'Continuous data',unit:'mmHg',y0:40,yMax:180,dynamicBounds:true,integerOnly:true,goal:120,goalLabel:'Normal <120',
+  'Blood Pressure':{datatypeCategory:'Continuous data',unit:'mmHg',y0:40,yMax:180,dynamicBounds:true,integerOnly:true,goal:120,goalLabel:'Normal SYS <120',
+    paired:true,seriesLabels:['Systolic','Diastolic'],
     zones:[{upper:90,l:'Hypotension'},{upper:120,l:'Normal'},{upper:130,l:'Elevated'},{upper:140,l:'Stage 1 HT'},{upper:180,l:'Stage 2 HT'},{upper:Infinity,l:'Hypertensive Crisis'}],
     tf:{
-      D:{labels:['Morning','Midday','Evening'],data:[118,122,116],agg:'Per reading (systolic)'},
-      W:{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],data:[115,120,118,122,119,116,114],agg:'Daily systolic avg'},
-      M:{labels:['Wk1','Wk2','Wk3','Wk4'],data:[120,118,116,119],agg:'Weekly avg'},
-      Y:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],data:[122,120,118,116,115,114,113,114,116,118,120,121],agg:'Monthly avg'},
+      D:{labels:['Morning','Midday','Evening'],data:[118,122,116],data2:[76,82,74],agg:'Per reading'},
+      W:{labels:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],data:[115,120,118,122,119,116,114],data2:[74,78,76,80,77,75,72],agg:'Daily avg'},
+      M:{labels:['Wk1','Wk2','Wk3','Wk4'],data:[120,118,116,119],data2:[78,76,75,77],agg:'Weekly avg'},
+      Y:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],data:[122,120,118,116,115,114,113,114,116,118,120,121],data2:[80,78,76,75,74,73,72,73,75,76,78,79],agg:'Monthly avg'},
     }},
   'Sleep Duration':{datatypeCategory:'Continuous data',unit:'h',y0:0,yMax:12,goal:8,goalLabel:'NSF 7-9h',
     zones:[{upper:5,l:'Severely Insufficient'},{upper:6,l:'Insufficient'},{upper:7,l:'Below Recommended'},{upper:9,l:'Optimal'},{upper:10,l:'Slightly Excessive'},{upper:Infinity,l:'Excessive'}],
@@ -323,24 +324,38 @@ function zLabel(z, i, zones) {
 
 // ─── Core chart computation ───────────────────────────────────────────────────
 
-function computeChart(metricKey, tf, peakInput, sex) {
+function computeChart(metricKey, tf, peakInput, peakInput2, sex) {
   let m = METRICS[metricKey];
   const tfd = m.tf[tf];
   if (!tfd) return null;
 
-  const rawData = tfd.data.map(Number);
+  const rawData  = tfd.data.map(Number);
+  const rawData2 = tfd.data2 ? tfd.data2.map(Number) : null;
   if (SEX_ZONES[metricKey]) m = { ...m, zones: SEX_ZONES[metricKey][sex] };
 
-  const peakOverride = parseFloat(peakInput);
-  const dataPeak = Math.max(...rawData);
-  const peak = (!isNaN(peakOverride) && peakOverride > 0)
-    ? Math.min(peakOverride, m.yMax)
-    : Math.min(dataPeak, m.yMax);
+  const peakOverride  = parseFloat(peakInput);
+  const peakOverride2 = parseFloat(peakInput2);
+
+  const dataPeak1 = Math.max(...rawData);
+  const dataPeak2 = rawData2 ? Math.max(...rawData2) : null;
+
+  const peak1 = (!isNaN(peakOverride)  && peakOverride  > 0) ? Math.min(peakOverride,  m.yMax) : Math.min(dataPeak1, m.yMax);
+  const peak2 = rawData2
+    ? ((!isNaN(peakOverride2) && peakOverride2 > 0) ? Math.min(peakOverride2, m.yMax) : Math.min(dataPeak2, m.yMax))
+    : null;
+
+  // y-axis is shared — base it on the higher of both peaks
+  const peak = rawData2 ? Math.max(peak1, peak2) : peak1;
+  const dataPeak = rawData2 ? Math.max(dataPeak1, dataPeak2) : dataPeak1;
 
   const scaledForBounds = rawData.map(v => {
-    if (m.dynamicBounds) { const shift = dataPeak - peak; return v - shift; }
-    return dataPeak > 0 ? v * (peak / dataPeak) : v;
+    if (m.dynamicBounds) { const shift = dataPeak1 - peak1; return v - shift; }
+    return dataPeak1 > 0 ? v * (peak1 / dataPeak1) : v;
   });
+  const scaledForBounds2 = rawData2 ? rawData2.map(v => {
+    if (m.dynamicBounds) { const shift = dataPeak2 - peak2; return v - shift; }
+    return dataPeak2 > 0 ? v * (peak2 / dataPeak2) : v;
+  }) : null;
 
   let effectiveY0 = m.y0;
   let effectiveYMax = m.yMax;
@@ -430,7 +445,8 @@ function computeChart(metricKey, tf, peakInput, sex) {
     }
   );
 
-  return { m, tfd, rawData, scaledData: scaledForBounds, peak, ceil, vis, effectiveY0, effectiveYMax,
+  return { m, tfd, rawData, rawData2, scaledData: scaledForBounds, scaledData2: scaledForBounds2,
+           peak, peak1, peak2, ceil, vis, effectiveY0, effectiveYMax,
            interval, all, visRange, zi, dc, dcCfg, formulas, isBounded, fmtVal };
 }
 
@@ -441,6 +457,7 @@ export default function Simulator() {
   const [metricKey, setMetricKey]   = useState(metricKeys[0]);
   const [tf, setTf]                 = useState('W');
   const [peakInput, setPeakInput]   = useState('');
+  const [peakInput2, setPeakInput2] = useState('');
   const [sex, setSex]               = useState('F');
 
   const tfOptions = Object.keys(METRICS[metricKey].tf);
@@ -448,15 +465,17 @@ export default function Simulator() {
   useEffect(() => {
     const tfs = Object.keys(METRICS[metricKey].tf);
     setTf(tfs.includes('W') ? 'W' : tfs[0]);
+    setPeakInput('');
+    setPeakInput2('');
   }, [metricKey]);
 
   const chart = useMemo(
-    () => computeChart(metricKey, tf, peakInput, sex),
-    [metricKey, tf, peakInput, sex]
+    () => computeChart(metricKey, tf, peakInput, peakInput2, sex),
+    [metricKey, tf, peakInput, peakInput2, sex]
   );
 
   if (!chart) return null;
-  const { m, tfd, rawData, scaledData, peak, ceil, vis, effectiveY0, effectiveYMax,
+  const { m, tfd, rawData, rawData2, scaledData, scaledData2, peak, peak1, peak2, ceil, vis, effectiveY0, effectiveYMax,
           interval, all, visRange, zi, dc, dcCfg, formulas, isBounded, fmtVal } = chart;
 
   const algoText = `Peak ${fmtN(peak)} → magnitude ${fmtN(Math.pow(10,Math.floor(Math.log10(Math.max(peak,1)))))} → interval ${fmtN(interval)} → ceiling ${fmtN(ceil)}`;
@@ -495,11 +514,26 @@ export default function Simulator() {
           </select>
         </div>
 
-        <div className="field">
-          <label>Peak override</label>
-          <input type="number" value={peakInput} placeholder="auto"
-            onChange={e => setPeakInput(e.target.value)} />
-        </div>
+        {m.paired ? (
+          <>
+            <div className="field">
+              <label>Systolic peak</label>
+              <input type="number" value={peakInput} placeholder="auto"
+                onChange={e => setPeakInput(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Diastolic peak</label>
+              <input type="number" value={peakInput2} placeholder="auto"
+                onChange={e => setPeakInput2(e.target.value)} />
+            </div>
+          </>
+        ) : (
+          <div className="field">
+            <label>Peak override</label>
+            <input type="number" value={peakInput} placeholder="auto"
+              onChange={e => setPeakInput(e.target.value)} />
+          </div>
+        )}
 
         {SEX_METRICS.has(metricKey) && (
           <div className="field">
@@ -530,8 +564,10 @@ export default function Simulator() {
         {/* KPIs */}
         <div className="kpis">
           <div className="kpi">
-            <div className="kpi-l">Peak</div>
-            <div className="kpi-v">{fmtN(peak)}</div>
+            <div className="kpi-l">{m.paired ? 'Peak (SYS / DIA)' : 'Peak'}</div>
+            <div className="kpi-v">
+              {m.paired ? `${fmtN(peak1)} / ${fmtN(peak2)}` : fmtN(peak)}
+            </div>
             <div className="kpi-s">{m.unit}</div>
           </div>
           <div className="kpi">
@@ -555,6 +591,18 @@ export default function Simulator() {
 
         {/* Chart */}
         <div className="section-title">Chart</div>
+        {m.paired && (
+          <div className="series-legend">
+            <div className="series-item">
+              <div className="series-swatch" style={{background:ZONE_BG[1],border:`2px solid ${ZONE_COLORS[1]}`}} />
+              Systolic
+            </div>
+            <div className="series-item">
+              <div className="series-swatch" style={{background:'#E6F1FB',border:'2px solid #378ADD'}} />
+              Diastolic
+            </div>
+          </div>
+        )}
         <div className="chart-wrap">
           {/* Y axis */}
           <div className="y-axis">
@@ -581,6 +629,30 @@ export default function Simulator() {
                 const color     = getZoneColor(v, m.zones);
                 const bg        = getZoneBg(v, m.zones);
                 const label     = isBounded && !m.integerOnly ? v.toFixed(1) : fmtN(Math.round(v));
+
+                if (scaledData2) {
+                  const v2        = scaledData2[i];
+                  const frac2     = visRange > 0 ? Math.max(0, (v2 - effectiveY0) / visRange) : 0;
+                  const height2   = Math.max(frac2 * 100, v2 > effectiveY0 ? 1.5 : 0);
+                  const label2    = fmtN(Math.round(v2));
+                  return (
+                    <div key={i} className="bar-wrap">
+                      <div className="bar-pair">
+                        <div className="bar"
+                          style={{height:`${heightPct.toFixed(2)}%`,background:bg,border:`2px solid ${color}`,flex:1}}
+                          title={`${tfd.labels[i]} Systolic: ${label} ${m.unit}`}>
+                          {frac > 0.08 && <span className="bar-val" style={{color}}>{label}</span>}
+                        </div>
+                        <div className="bar"
+                          style={{height:`${height2.toFixed(2)}%`,background:'#E6F1FB',border:'2px solid #378ADD',flex:1}}
+                          title={`${tfd.labels[i]} Diastolic: ${label2} ${m.unit}`}>
+                          {frac2 > 0.08 && <span className="bar-val" style={{color:'#185FA5'}}>{label2}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={i} className="bar-wrap">
                     <div className="bar"
