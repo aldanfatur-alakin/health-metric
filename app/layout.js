@@ -1,3 +1,4 @@
+import 'tech2heal-design-system/src/tokens/variables.css';
 import './globals.css';
 
 export const metadata = {

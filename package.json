@@ -9,6 +9,7 @@
   "dependencies": {
     "next": "15",
     "react": "19",
-    "react-dom": "19"
+    "react-dom": "19",
+    "tech2heal-design-system": "github:aldanfatur-alakin/tech2heal-design-system"
   }
 }
